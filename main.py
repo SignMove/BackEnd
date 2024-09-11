@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from api import user
 from api import campaign
+from api import news
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -15,6 +16,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.include_router(user.router)
 app.include_router(campaign.router)
+app.include_router(news.router)
 
 app.add_middleware(
     CORSMiddleware,
