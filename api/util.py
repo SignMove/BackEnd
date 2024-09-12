@@ -16,7 +16,7 @@ async def generate_unique_filename():
     unique_name = f"{uuid.uuid4()}.{extension}"
     return unique_name
 
-async def upload_files(files: list[str] | None = File(None)):
+async def upload_files(files: list[str]):
     if not files:
         return [""]
     
@@ -26,9 +26,9 @@ async def upload_files(files: list[str] | None = File(None)):
     saved_paths = []
 
     for i in files:
-        unique_filename = generate_unique_filename()
+        unique_filename = await generate_unique_filename()
         file_location = UPLOAD_DIR / unique_filename
-        file = convert_base64_to_uploadfile(i, unique_filename)
+        file = await convert_base64_to_uploadfile(i, unique_filename)
         
         with open(file_location, "wb") as f:
             f.write(await file.read())

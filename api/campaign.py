@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, Depends
-from sqlmodel import Session, select
+from fastapi import APIRouter, HTTPException, Depends, Query
+from sqlmodel import Session, select, or_, desc
 from database import get_session
 from datetime import datetime
+from typing import Optional
 from model.campaign import Campaign
 from api.util import upload_files, delete_files
 
@@ -22,19 +23,26 @@ async def campaign_get_detail(id: int, session: Session = Depends(get_session)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/campaign/list", tags=["Campaign"])
-async def campaign_get_list(region: str, keyword: str | None, owner: int | None, session: Session = Depends(get_session)):
+async def campaign_get_list(limit: int, region: str, req: Optional[str | int] = Query(None), session: Session = Depends(get_session)):
     try:
         campaign_list = []
 
-        if owner:
-            statement = select(Campaign).where(Campaign.owner == owner)
-            campaigns = session.exec(statement).all()
-            campaign_list.append(campaigns)
+        if req != None:
+            if isinstance(req, int):
+                statement = select(Campaign).where(Campaign.owner == req)
+            else:
+                statement = select(Campaign).where(or_(
+                    Campaign.owner.ilike(f'%{req}%'),
+                    Campaign.title.ilike(f'%{req}%'),
+                    Campaign.content.ilike(f'%{req}%'),
+                ))
         
-        if keyword:
-            pass
+        else:
+            # todo: region
+            statement = select(Campaign)
         
-        # todo: region neighbor, keyword recommend
+        campaigns = session.exec(statement.order_by(desc(Campaign.created_at)).limit(limit)).all()
+        campaign_list.append(campaigns)
 
         return campaign_list
     
@@ -42,7 +50,7 @@ async def campaign_get_list(region: str, keyword: str | None, owner: int | None,
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/campaign", tags=["Campaign"])
-async def campaign_set(campaign: Campaign, session: Session = Depends(get_session)):
+async def campaign_set(campaign: Campaign, upload_images: Optional[list[str]] = Query(None), session: Session = Depends(get_session)):
     try:
         statement = select(Campaign).where(
             Campaign.owner == campaign.owner,
@@ -56,16 +64,16 @@ async def campaign_set(campaign: Campaign, session: Session = Depends(get_sessio
             existing_campaign.content = campaign.content
             existing_campaign.region = campaign.region
 
-            delete_files(existing_campaign.images)
-            if campaign.upload_images:
-                existing_campaign.images = upload_files(campaign.upload_images)
+            await delete_files(existing_campaign.images)
+            if upload_images:
+                existing_campaign.images = await upload_files(upload_images)
             
             session.add(existing_campaign)
             updated = True
         else:
             campaign.created_at = datetime.now()
-            if campaign.upload_images:
-                campaign.images = upload_files(campaign.upload_images)
+            if upload_images:
+                campaign.images = await upload_files(upload_images)
 
             session.add(campaign)
             updated = False

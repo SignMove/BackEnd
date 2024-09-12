@@ -8,6 +8,4 @@ class User(SQLModel, table=True):
     description: str = Field(...)
     region: str = Field(...)
     image: Optional[str] = Field(default=None)
-    upload_image: Optional[str]
-    # created_campaign: Optional[List[int]] = Field(default=None, sa_column=Column(JSON))
     # joined_campaign: Optional[List[int]] = Field(default=None, sa_column=Column(JSON))

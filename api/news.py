@@ -1,16 +1,15 @@
-from fastapi import APIRouter, HTTPException, Depends, UploadFile
-from sqlmodel import Session, select
+from fastapi import APIRouter, HTTPException, Depends
+from sqlmodel import Session, select, desc
 from database import get_session
 from datetime import datetime
 from feedparser import parse
 from bs4 import BeautifulSoup
 from requests import get
 from model.news import News
-from api.util import upload_files, delete_files
 
 router = APIRouter()
 
-@router.get("/news", tags=["News"])
+@router.put("/news", tags=["News"])
 async def news_fetch(session: Session = Depends(get_session)):
     try:
         rss_url = 'https://www.mk.co.kr/rss/30200030/'
@@ -80,7 +79,7 @@ async def news_get_detail(id: int, session: Session = Depends(get_session)):
 @router.get("/news/list", tags=["News"])
 async def news_get_list(limit: int, session: Session = Depends(get_session)):
     try:
-        statement = select(News).limit(limit)
+        statement = select(News).order_by(desc(News.created_at)).limit(limit)
         news = session.exec(statement).all()
 
         if news:
