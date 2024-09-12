@@ -1,11 +1,13 @@
 from fastapi import APIRouter, HTTPException, Depends
-from sqlmodel import Session, select, desc
+from sqlmodel import Session, select, and_, desc
 from database import get_session
 from datetime import datetime
 from feedparser import parse
 from bs4 import BeautifulSoup
 from requests import get
 from model.news import News
+from api.util import delete_files
+from model.dto import Comment
 
 router = APIRouter()
 
@@ -44,10 +46,10 @@ async def news_fetch(session: Session = Depends(get_session)):
             news.title = entry.title
             news.content = '\n'.join(post_content)
 
-            statement = select(News).where(
+            statement = select(News).where(and_(
                 News.created_at == news.created_at,
                 News.title == news.title
-            )
+            ))
             existing_news = session.exec(statement).first()
 
             if not existing_news:
@@ -103,5 +105,41 @@ async def news_del(id: int, session: Session = Depends(get_session)):
         else:
             return {"updated": False}
         
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/news/comment", tags=["News"])
+async def news_comment_add(id: int, comment: Comment, session: Session = Depends(get_session)):
+    try:
+        statement = select(News).where(News.id == id)
+        news = session.exec(statement).first()
+
+        if news:
+            news.comment_add(comment)
+            session.add(news)
+            session.commit()
+
+            return {"updated": True}
+        else:
+            return {"updated": False}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/news/comment", tags=["News"])
+async def news_comment_del(id: int, comment_id: int, session: Session = Depends(get_session)):
+    try:
+        statement = select(News).where(News.id == id)
+        news = session.exec(statement).first()
+
+        if news:
+            news.comment_del(comment_id)
+            session.add(news)
+            session.commit()
+
+            return {"updated": True}
+        else:
+            return {"updated": False}
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

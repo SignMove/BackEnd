@@ -6,6 +6,7 @@ sqlite_url = f"sqlite:///{database_file}"
 engine = create_engine(sqlite_url, echo=True)
 
 def conn():
+    # SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
 
 def get_session():

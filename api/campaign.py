@@ -4,6 +4,7 @@ from database import get_session
 from datetime import datetime
 from typing import Optional
 from model.campaign import Campaign
+from model.dto import Comment, Signature
 from api.util import upload_files, delete_files
 
 router = APIRouter()
@@ -27,7 +28,7 @@ async def campaign_get_list(limit: int, region: str, req: Optional[str | int] = 
     try:
         campaign_list = []
 
-        if req != None:
+        if req is not None:
             if isinstance(req, int):
                 statement = select(Campaign).where(Campaign.owner == req)
             else:
@@ -50,12 +51,9 @@ async def campaign_get_list(limit: int, region: str, req: Optional[str | int] = 
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/campaign", tags=["Campaign"])
-async def campaign_set(campaign: Campaign, upload_images: Optional[list[str]] = Query(None), session: Session = Depends(get_session)):
+async def campaign_set(campaign: Campaign, session: Session = Depends(get_session)):
     try:
-        statement = select(Campaign).where(
-            Campaign.owner == campaign.owner,
-            Campaign.created_at == campaign.created_at
-        )
+        statement = select(Campaign).where(Campaign.id == campaign.id)
         existing_campaign = session.exec(statement).first()
 
         if existing_campaign:
@@ -65,15 +63,15 @@ async def campaign_set(campaign: Campaign, upload_images: Optional[list[str]] = 
             existing_campaign.region = campaign.region
 
             await delete_files(existing_campaign.images)
-            if upload_images:
-                existing_campaign.images = await upload_files(upload_images)
+            if campaign.images:
+                existing_campaign.images = await upload_files(campaign.images)
             
             session.add(existing_campaign)
             updated = True
         else:
             campaign.created_at = datetime.now()
-            if upload_images:
-                campaign.images = await upload_files(upload_images)
+            if campaign.images:
+                campaign.images = await upload_files(campaign.images)
 
             session.add(campaign)
             updated = False
@@ -92,11 +90,86 @@ async def campaign_del(id: int, session: Session = Depends(get_session)):
         campaign = session.exec(statement).first()
         
         if campaign:
+            await delete_files(campaign.images)
             session.delete(campaign)
             session.commit()
             return {"updated": True}
         else:
             return {"updated": False}
         
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/campaign/comment", tags=["Campaign"])
+async def campaign_comment_add(id: int, comment: Comment, session: Session = Depends(get_session)):
+    try:
+        statement = select(Campaign).where(Campaign.id == id)
+        campaign = session.exec(statement).first()
+
+        if campaign:
+            campaign.comment_add(comment)
+            session.add(campaign)
+            session.commit()
+
+            return {"updated": True}
+        else:
+            return {"updated": False}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/campaign/comment", tags=["Campaign"])
+async def campaign_comment_del(id: int, comment_id: int, session: Session = Depends(get_session)):
+    try:
+        statement = select(Campaign).where(Campaign.id == id)
+        campaign = session.exec(statement).first()
+
+        if campaign:
+            campaign.comment_del(comment_id)
+            session.add(campaign)
+            session.commit()
+
+            return {"updated": True}
+        else:
+            return {"updated": False}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/campaign/signature", tags=["Campaign"])
+async def campaign_signature_add(id: int, signature: Signature, session: Session = Depends(get_session)):
+    try:
+        statement = select(Campaign).where(Campaign.id == id)
+        campaign = session.exec(statement).first()
+
+        if campaign:
+            signature.sign = await upload_files([signature.sign])
+            campaign.signature_add(signature)
+            session.add(campaign)
+            session.commit()
+
+            return {"updated": True}
+        else:
+            return {"updated": False}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/campaign/signature", tags=["Campaign"])
+async def campaign_signature_del(id: int, signature_id: int, sign: str, session: Session = Depends(get_session)):
+    try:
+        statement = select(Campaign).where(Campaign.id == id)
+        campaign = session.exec(statement).first()
+
+        if campaign:
+            await delete_files([sign])
+            campaign.signature_del(signature_id)
+            session.add(campaign)
+            session.commit()
+
+            return {"updated": True}
+        else:
+            return {"updated": False}
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

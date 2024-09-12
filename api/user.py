@@ -35,7 +35,7 @@ async def user_get(email: str, session: Session = Depends(get_session)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/user", tags=["User"])
-async def user_set(user: User, upload_image: Optional[str] = Query(None), session: Session = Depends(get_session)):
+async def user_set(user: User, session: Session = Depends(get_session)):
     """
     사용자 정보를 추가하거나 기존 사용자 정보를 업데이트합니다.
 
@@ -57,15 +57,15 @@ async def user_set(user: User, upload_image: Optional[str] = Query(None), sessio
             existing_user.description = user.description
             existing_user.region = user.region
 
-            await delete_files(existing_user.image)
-            if upload_image:
-                existing_user.image = await upload_files([upload_image])[0]
+            await delete_files([existing_user.image])
+            if user.image:
+                existing_user.image = await upload_files([user.image])[0]
 
             session.add(existing_user)
             updated = True
         else:
-            if upload_image:
-                user.image = await upload_files([upload_image])[0]
+            if user.image:
+                user.image = await upload_files([user.image])[0]
             
             session.add(user)
             updated = False
@@ -98,6 +98,7 @@ async def user_del(email: str, session: Session = Depends(get_session)):
         user = session.exec(statement).first()
         
         if user:
+            await delete_files([user.image])
             session.delete(user)
             session.commit()
             return {"updated": True}

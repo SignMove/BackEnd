@@ -1,6 +1,6 @@
-fastapi
-uvicorn[standard]
-SQLModel
-requests
-BeautifulSoup4
-feedparser
+fastapi==0.114.0
+uvicorn[standard]==0.30.0
+sqlmodel==0.0.20
+requests==2.31.0
+beautifulsoup4==4.12.0
+feedparser==6.0.10
